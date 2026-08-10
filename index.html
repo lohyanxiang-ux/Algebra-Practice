@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Algebraic Hacker: Missions</title>
+    <style>
+        /* --- GLOBAL & THEME --- */
+        :root {
+            --bg-dark: #050505; --bg-panel: #0d1117; --border-neon: #00ffcc; 
+            --text-main: #c9d1d9; --text-neon: #00ffcc; --accent-red: #ff003c;
+            --accent-green: #3fb950; --accent-orange: #ffa500; --btn-dark: #161b22; --btn-hover: #21262d;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Courier New', Courier, monospace; }
+        
+        /* Added 100dvh for iOS/iPad Safari compatibility */
+        body, html { 
+            width: 100vw; height: 100vh; height: 100dvh; 
+            background-color: var(--bg-dark); color: var(--text-main); 
+            overflow: hidden; touch-action: none; 
+        }
+
+        /* --- MENU OVERLAY --- */
+        #menu-overlay {
+            position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; background: rgba(5, 5, 5, 0.95); z-index: 100;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .menu-box {
+            background: var(--bg-panel); border: 1px solid var(--border-neon); padding: 40px; width: 90%; max-width: 700px;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+        }
+        .menu-title { color: var(--text-neon); font-size: 2rem; margin-bottom: 25px; text-transform: uppercase; text-align: center; font-weight: bold; }
+        .menu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .menu-btn {
+            background: var(--btn-dark); border: 1px solid #30363d; color: var(--text-main); padding: 15px; text-align: left;
+            font-size: 1rem; cursor: pointer; transition: 0.2s; position: relative; overflow: hidden;
+        }
+        .menu-btn.active-mission { border-color: var(--border-neon); color: var(--text-neon); font-weight: bold; }
+        .menu-btn.active-mission:hover { background: rgba(0, 255, 204, 0.1); }
+        
+        /* Completed Mission Styling */
+        .menu-btn.completed { border-color: var(--accent-green); color: var(--accent-green); }
+        .menu-btn.completed::after { 
+            content: "[ COMPLETED ]"; position: absolute; right: 15px; top: 50%; transform: translateY(-50%); 
+            color: var(--accent-green); font-size: 0.85rem; font-weight: bold; 
+        }
+
+        .menu-btn.locked { opacity: 0.5; cursor: not-allowed; border-style: dashed; }
+        .menu-btn.locked::after { content: "[ LOCKED ]"; position: absolute; right: 10px; color: var(--accent-red); top: 50%; transform: translateY(-50%); }
+        
+        .menu-btn.gauntlet { grid-column: span 2; text-align: center; border-color: var(--accent-red); color: var(--accent-red); background: rgba(255, 0, 60, 0.05); }
+        .menu-btn.gauntlet:hover { background: rgba(255, 0, 60, 0.15); }
+
+        /* --- 3-COLUMN LAYOUT --- */
+        #app-container { display: flex; flex-direction: row; width: 100%; height: 100%; }
+        #col-mission { flex: 1.2; background: var(--bg-panel); border-right: 1px solid var(--border-neon); display: flex; flex-direction: column; padding: 20px; z-index: 10; }
+        #col-canvas { flex: 2; position: relative; background: var(--bg-dark); cursor: crosshair; }
+        #col-input { flex: 1.2; background: var(--bg-panel); border-left: 1px solid var(--border-neon); display: flex; flex-direction: column; padding: 15px; z-index: 10; }
+
+        /* --- UI ELEMENTS --- */
+        .header-title { font-size: 1.2rem; font-weight: bold; color: var(--text-neon); margin-bottom: 10px; text-transform: uppercase; border-bottom: 1px solid var(--border-neon); padding-bottom: 5px; }
+        .stats { font-size: 1.1rem; margin-bottom: 8px; }
+        .score { color: var(--accent-green); } .lives { color: var(--accent-red); }
+        
+        .briefing-text {
+            font-size: 0.95rem; color: #8b949e; margin-bottom: 15px; margin-top: 10px;
+            font-style: italic; border-left: 2px solid var(--border-neon); padding-left: 10px;
+        }
+
+        #question-box {
+            background: var(--btn-dark); border-radius: 4px; padding: 20px; text-align: center; border: 1px dashed #30363d;
+            flex-grow: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 150px;
+            overflow-x: auto; overflow-y: hidden; position: relative;
+        }
+
+        .instruction-text {
+            font-size: 1rem; color: var(--text-neon); text-transform: uppercase; margin-bottom: 15px; 
+            border-bottom: 1px dashed #30363d; padding-bottom: 10px; width: 100%; font-weight: bold;
+        }
+        
+        .side-btn {
+            background: var(--btn-dark); border: 1px solid #30363d; color: var(--text-main); padding: 12px; font-size: 1rem; cursor: pointer; margin-top: 10px; text-align: center; text-transform: uppercase;
+        }
+        .side-btn:active { background: #30363d; }
+
+        /* --- MATH FORMATTING --- */
+        .math-expr { 
+            font-family: 'Cambria Math', 'Times New Roman', serif; 
+            font-size: 2rem; color: #fff; letter-spacing: 2px; white-space: nowrap; 
+        }
+        .frac { display: inline-flex; flex-direction: column; vertical-align: middle; align-items: center; justify-content: center; margin: 0 8px; font-size: 0.9em; }
+        .frac-num { border-bottom: 2px solid #fff; padding: 0 5px; width: 100%; text-align: center; }
+        .frac-den { padding: 0 5px; width: 100%; text-align: center; }
+
+        /* --- FAKE INPUT BOX --- */
+        #answerBox {
+            background: var(--bg-dark); border: 1px solid var(--border-neon); min-height: 70px; margin-bottom: auto;
+            display: flex; align-items: center; justify-content: center; transition: background-color 0.3s, border-color 0.3s;
+        }
+        .cursor-blink { border-right: 10px solid var(--text-neon); animation: blink 1s infinite; margin-left: 4px; display: inline-block; width: 10px; height: 1.5rem; vertical-align: middle; }
+        @keyframes blink { 50% { border-color: transparent; } }
+
+        /* --- CANVAS --- */
+        #drawingCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #tools-panel { position: absolute; top: 15px; right: 15px; display: flex; gap: 10px; z-index: 20; }
+        .tool-btn { background: var(--btn-dark); color: white; border: 1px solid #30363d; width: 45px; height: 45px; font-size: 1.2rem; cursor: pointer; }
+        .tool-btn.active-tool { border-color: var(--border-neon); color: var(--border-neon); }
+
+        /* --- KEYPAD --- */
+        #custom-keyboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: 100%; margin-top: 15px; }
+        .key {
+            background: var(--btn-dark); border: 1px solid #30363d; color: var(--text-main); font-size: 1.3rem; min-height: 45px;
+            display: flex; justify-content: center; align-items: center; cursor: pointer; user-select: none; font-family: sans-serif;
+        }
+        .key:active { background: var(--border-neon); color: black; }
+        .key-submit { background: var(--text-neon); color: black; font-weight: bold; font-size: 1.1rem; }
+        .key-del { background: var(--accent-red); color: white; font-weight: bold; border-color: var(--accent-red); }
+        .key-var { font-family: 'Cambria Math', serif; font-style: italic; color: #ffeb3b; }
+
+        /* --- RESPONSIVE TWEAKS FOR IPAD / TABLETS --- */
+        @media (max-height: 850px) {
+            .key { min-height: 38px; font-size: 1.1rem; }
+            #custom-keyboard { gap: 4px; margin-top: 10px; }
+            #answerBox { min-height: 55px; }
+            #col-input, #col-mission { padding: 10px; }
+            .header-title { margin-bottom: 5px; font-size: 1rem; }
+            .math-expr { font-size: 1.6rem; }
+            #question-box { min-height: 120px; padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="modal-overlay" style="display:none; position:absolute; top:0; left:0; width:100vw; height:100vh; height:100dvh; background:rgba(0,0,0,0.9); z-index:200; flex-direction:column; align-items:center; justify-content:center;">
+    <div id="modal-box" style="background:var(--bg-panel); border:2px solid var(--border-neon); padding:40px; text-align:center; border-radius:8px; box-shadow:0 0 20px rgba(0,255,204,0.3); max-width: 600px;">
+        <h1 id="modal-title" style="color:var(--text-neon); margin-bottom:20px; font-size:2.5rem; text-transform:uppercase;"></h1>
+        <p id="modal-msg" style="font-size:1.2rem; margin-bottom:30px; line-height: 1.5; color: var(--text-main);"></p>
+        <button onclick="hideModalAndReturn()" style="background:var(--btn-dark); border:1px solid var(--border-neon); color:var(--text-neon); padding:15px 30px; font-size:1.2rem; cursor:pointer; font-weight:bold; text-transform:uppercase; transition: 0.2s;">ACKNOWLEDGE</button>
+    </div>
+</div>
+
+<div id="menu-overlay">
+    <div class="menu-box">
+        <div class="menu-title">Select Mission Phase</div>
+        <div class="menu-grid">
+            <button id="btn-mode-1" class="menu-btn active-mission" onclick="startGame(1)">1. Data Compressor<br><span style="font-size:0.8em; font-weight:normal; color:#8b949e;">(Simplify & Expand)</span></button>
+            <button id="btn-mode-2" class="menu-btn active-mission" onclick="startGame(2)">2. Factory Decrypter<br><span style="font-size:0.8em; font-weight:normal; color:#8b949e;">(Factorization)</span></button>
+            <button id="btn-mode-3" class="menu-btn active-mission" onclick="startGame(3)">3. Circuit Tester<br><span style="font-size:0.8em; font-weight:normal; color:#8b949e;">(Substitution)</span></button>
+            <button id="btn-mode-4" class="menu-btn active-mission" onclick="startGame(4)">4. Firewall Breaker<br><span style="font-size:0.8em; font-weight:normal; color:#8b949e;">(Linear Equations)</span></button>
+            <button id="btn-mode-5" class="menu-btn active-mission" onclick="startGame(5)">5. Bridge Predictor<br><span style="font-size:0.8em; font-weight:normal; color:#8b949e;">(Sequences)</span></button>
+            <button id="btn-mode-6" class="menu-btn active-mission" onclick="startGame(6)">6. Core Isolator<br><span style="font-size:0.8em; font-weight:normal; color:#8b949e;">(Subject of Formula)</span></button>
+            <button id="btn-mode-7" class="menu-btn active-mission gauntlet" onclick="startGame(7)">7. SYSTEM GAUNTLET<br><span style="font-size:0.8em; font-weight:normal; color:#ff003c;">(All Modules Randomized)</span></button>
+        </div>
+    </div>
+</div>
+
+<div id="app-container">
+    <div id="col-mission">
+        <div class="header-title" id="header-title-display">Mission Details</div>
+        <div class="stats score" id="ui-score">Integrity: 0%</div>
+        <div class="stats lives" id="ui-lives">Firewalls: 🛡️🛡️🛡️</div>
+        
+        <div id="briefing-display" class="briefing-text"></div>
+
+        <div id="question-box">
+            <div id="instruction-display" class="instruction-text"></div>
+            <span id="question-display" class="math-expr"></span>
+        </div>
+
+        <div style="margin-top: auto; display: flex; flex-direction: column;">
+            <div class="side-btn" style="color:var(--accent-red); border-color:var(--accent-red);" onclick="returnToMenu()">Abort Mission</div>
+        </div>
+    </div>
+
+    <div id="col-canvas">
+        <div id="tools-panel">
+            <button class="tool-btn active-tool" id="btn-draw" title="Draw">✏️</button>
+            <button class="tool-btn" id="btn-erase" title="Erase">🧽</button>
+            <button class="tool-btn" id="btn-clear" title="Clear">🗑️</button>
+        </div>
+        <canvas id="drawingCanvas"></canvas>
+    </div>
+
+    <div id="col-input">
+        <div class="header-title">Terminal Input</div>
+        
+        <div id="answerBox">
+            <span id="answer-display" class="math-expr"></span><span class="cursor-blink" id="input-cursor"></span>
+        </div>
+
+        <div id="custom-keyboard">
+            <div class="key">7</div> <div class="key">8</div> <div class="key">9</div> <div class="key key-del" onclick="keyPress('DEL')">DEL</div>
+            <div class="key">4</div> <div class="key">5</div> <div class="key">6</div> <div class="key">/</div>
+            <div class="key">1</div> <div class="key">2</div> <div class="key">3</div> <div class="key">²</div>
+            <div class="key">0</div> <div class="key">.</div> <div class="key">+</div> <div class="key">-</div>
+            <div class="key">(</div> <div class="key">)</div> <div class="key key-var">x</div> <div class="key key-var">y</div>
+            <div class="key key-var">z</div> <div class="key key-var">n</div> <div class="key">√</div> <div class="key key-submit" onclick="keyPress('ENTER')">SUBMIT</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let gameState = { currentMode: 1, isGauntlet: false, score: 0, lives: 3, failedAttempts: 0, currentInput: '', expectedAnswer: [] };
+    let completedMissions = {1: false, 2: false, 3: false, 4: false, 5: false, 6: false, 7: false};
+
+    window.onload = () => {
+        showModal("SYSTEM BOOT", "Welcome, Hacker. The mainframes have been corrupted by a rogue AI. Your global objective is to bypass the security layers and restore system integrity using your algebraic skills. Select a node to begin decryption.");
+    };
+
+    function updateMenuUI() {
+        for(let i = 1; i <= 7; i++) {
+            let btn = document.getElementById('btn-mode-' + i);
+            if(btn && completedMissions[i]) {
+                btn.classList.add('completed');
+            }
+        }
+    }
+
+    function startGame(mode) {
+        if(mode < 1 || mode > 7) return;
+        gameState.currentMode = mode;
+        gameState.isGauntlet = (mode === 7);
+        gameState.score = 0; gameState.lives = 3;
+        gameState.failedAttempts = 0;
+        
+        const titles = [
+            "Mission: Data Compressor", "Mission: Factory Decrypter", "Mission: Circuit Tester",
+            "Mission: Firewall Breaker", "Mission: Bridge Predictor", "Mission: Core Isolator", "Mission: System Gauntlet"
+        ];
+        
+        const briefings = [
+            "Briefing: Compress the scattered data fragments by simplifying the algebraic expressions.",
+            "Briefing: The security keys are heavily encrypted. Break them down into their fundamental factors.",
+            "Briefing: Test the logic gates by substituting the given variable values into the circuits.",
+            "Briefing: The firewall's defense values are shifting. Solve for the unknown variable to breach it.",
+            "Briefing: The AI's routing algorithm follows predictable sequences. Identify the missing term to map the path.",
+            "Briefing: The rogue AI core is hidden within complex formulas. Isolate the target variable to expose it.",
+            "Briefing: FULL SYSTEM OVERRIDE. Face a randomized barrage of all security measures."
+        ];
+
+        document.getElementById('header-title-display').innerText = titles[mode - 1];
+        document.getElementById('briefing-display').innerText = briefings[mode - 1];
+
+        document.getElementById('menu-overlay').style.display = 'none';
+        updateStats(); document.getElementById('btn-clear').click();
+        generateQuestion(); setTimeout(resizeCanvas, 50);
+    }
+    
+    function returnToMenu() { 
+        updateMenuUI();
+        document.getElementById('menu-overlay').style.display = 'flex'; 
+    }
+
+    // --- MODAL LOGIC ---
+    function showModal(title, msg, isCrash = false) {
+        let titleEl = document.getElementById('modal-title');
+        let boxEl = document.getElementById('modal-box');
+        
+        titleEl.innerText = title;
+        document.getElementById('modal-msg').innerText = msg;
+        
+        titleEl.style.color = isCrash ? 'var(--accent-red)' : 'var(--text-neon)';
+        boxEl.style.borderColor = isCrash ? 'var(--accent-red)' : 'var(--border-neon)';
+        boxEl.style.boxShadow = isCrash ? '0 0 20px rgba(255,0,60,0.3)' : '0 0 20px rgba(0,255,204,0.3)';
+        
+        document.getElementById('modal-overlay').style.display = 'flex';
+    }
+
+    function hideModalAndReturn() {
+        document.getElementById('modal-overlay').style.display = 'none';
+        if (gameState.score === 0 && document.getElementById('menu-overlay').style.display !== 'none') {
+            // Boot sequence
+        } else {
+            returnToMenu();
+        }
+    }
+
+    // --- MATH HELPERS ---
+    function rand(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+    function gcd(a, b) { a = Math.abs(a); b = Math.abs(b); while(b) { let t = b; b = a % b; a = t; } return a; }
+
+    function formatTerms(terms) {
+        let str = '';
+        for (let i = 0; i < terms.length; i++) {
+            let {c, v} = terms[i];
+            if (c === 0) continue;
+            let sign = c > 0 ? '+' : '-';
+            let absC = Math.abs(c);
+            let coeff = (absC === 1 && v !== '') ? '' : absC;
+            
+            if (str === '') {
+                str += c < 0 ? `-${coeff}${v}` : `${coeff}${v}`;
+            } else {
+                str += ` ${sign} ${coeff}${v}`;
+            }
+        }
+        return str === '' ? '0' : str.replace(/\s+/g, '');
+    }
+
+    function getTermPermutations(terms) {
+        let results = [];
+        function permute(arr, m = []) {
+            if (arr.length === 0) {
+                let str = '';
+                for (let i = 0; i < m.length; i++) {
+                    let {c, v} = m[i];
+                    if (c === 0) continue;
+                    let sign = c > 0 ? '+' : '-';
+                    let absC = Math.abs(c);
+                    let coeff = (absC === 1 && v !== '') ? '' : absC;
+                    if (str === '') { str += c < 0 ? `-${coeff}${v}` : `${coeff}${v}`; } 
+                    else { str += `${sign}${coeff}${v}`; }
+                }
+                if (str === '') str = '0';
+                results.push(str);
+            } else {
+                for (let i = 0; i < arr.length; i++) {
+                    let curr = arr.slice();
+                    let next = curr.splice(i, 1);
+                    permute(curr.slice(), m.concat(next));
+                }
+            }
+        }
+        permute(terms);
+        return [...new Set(results)]; 
+    }
+
+    function formatTermsDisplay(terms) {
+        let str = '';
+        for (let i = 0; i < terms.length; i++) {
+            let {c, v} = terms[i];
+            if (c === 0) continue;
+            let sign = c > 0 ? '+' : '-';
+            let absC = Math.abs(c);
+            let coeff = (absC === 1 && v !== '') ? '' : absC;
+            
+            if (str === '') {
+                str += c < 0 ? `-${coeff}${v}` : `${coeff}${v}`;
+            } else {
+                str += ` ${sign} ${coeff}${v}`;
+            }
+        }
+        return str === '' ? '0' : str;
+    }
+
+    function fracHtml(num, den) {
+        return `<div class="frac"><div class="frac-num">${num}</div><div class="frac-den">${den}</div></div>`;
+    }
+    
+    function makeMonomial(c, xP, yP) {
+        if (c === 0) return '0';
+        let str = '';
+        let hasVars = xP > 0 || yP > 0;
+        
+        if (c === -1 && hasVars) str = '-';
+        else if (c === 1 && hasVars) str = '';
+        else str = c.toString();
+        
+        if (xP === 1) str += 'x';
+        else if (xP === 2) str += 'x²';
+        
+        if (yP === 1) str += 'y';
+        else if (yP === 2) str += 'y²';
+        
+        return str;
+    }
+
+    function getFractionVariations(terms, denom) {
+        let results = [];
+        let topPerms = getTermPermutations(terms); 
+
+        if (denom === 1 || denom === -1) {
+            if (denom === -1) {
+                let flippedTerms = terms.map(t => ({c: -t.c, v: t.v}));
+                return getTermPermutations(flippedTerms);
+            }
+            return topPerms;
+        }
+
+        let d = denom;
+        let useTerms = terms;
+        if (d < 0) {
+            d = -d;
+            useTerms = terms.map(t => ({c: -t.c, v: t.v}));
+            topPerms = getTermPermutations(useTerms);
+        }
+
+        topPerms.forEach(p => results.push(`(${p})/${d}`));
+        topPerms.forEach(p => results.push(`${p}/${d}`));
+
+        let expandedTerms = useTerms.map(t => {
+            let c = t.c; let v = t.v;
+            if (c === 0) return null;
+
+            let g = gcd(c, d); let simC = c / g; let simD = d / g;
+
+            let formatTerm = (coef, den, variable) => {
+                let sign = coef < 0 ? '-' : '+'; let absCoef = Math.abs(coef);
+                let coefStr = (absCoef === 1 && variable !== '') ? '' : absCoef;
+                let topStr = coefStr + variable;
+                if (topStr === '') topStr = '1';
+                if (den === 1) return { sign: sign, str: topStr };
+                else return { sign: sign, str: `${topStr}/${den}` };
+            };
+
+            return { unsim: formatTerm(c, d, v), sim: formatTerm(simC, simD, v) };
+        }).filter(t => t !== null);
+
+        let exps = [];
+        function buildExpanded(arr) {
+            function permute(m, remaining) {
+                if (remaining.length === 0) {
+                    let unsimStr = ''; let simStr = '';
+                    for (let i = 0; i < m.length; i++) {
+                        if (i === 0) {
+                            unsimStr += m[i].unsim.sign === '-' ? '-' + m[i].unsim.str : m[i].unsim.str;
+                            simStr += m[i].sim.sign === '-' ? '-' + m[i].sim.str : m[i].sim.str;
+                        } else {
+                            unsimStr += m[i].unsim.sign === '-' ? '-' + m[i].unsim.str : '+' + m[i].unsim.str;
+                            simStr += m[i].sim.sign === '-' ? '-' + m[i].sim.str : '+' + m[i].sim.str;
+                        }
+                    }
+                    exps.push(unsimStr); exps.push(simStr);
+                } else {
+                    for (let i = 0; i < remaining.length; i++) {
+                        let curr = remaining.slice(); let next = curr.splice(i, 1);
+                        permute(m.concat(next), curr);
+                    }
+                }
+            }
+            permute([], arr);
+        }
+        buildExpanded(expandedTerms);
+        exps.forEach(e => results.push(e));
+
+        return [...new Set(results)];
+    }
+
+    // --- GENERATOR LOGIC ---
+    function generateQuestion() {
+        gameState.currentInput = ''; updateAnswerDisplay();
+        let instStr = ""; let qHTML = ""; let ans = [];
+
+        let actualMode = gameState.isGauntlet ? rand(1, 6) : gameState.currentMode;
+
+        if (actualMode === 1) {
+            instStr = "Simplify the expression";
+            let type = rand(1, 9);
+            
+            if(type === 1) { 
+                let a = rand(2,5), b = rand(2,9), c = rand(2,5), d = rand(2,9);
+                qHTML = `${a}x + ${b} + ${c}x - ${d}`;
+                ans = getTermPermutations([{c: a+c, v:'x'}, {c: b-d, v:''}]);
+            }
+            else if(type === 2) { 
+                let a = rand(2,6), b = rand(2,6), c = rand(2,6), d = rand(2,6);
+                qHTML = `(${a}x - ${b}y) - (${c}x + ${d}y)`;
+                ans = getTermPermutations([{c: a-c, v:'x'}, {c: -b-d, v:'y'}]);
+            }
+            else if(type === 3) { 
+                let a = rand(2,4), b = rand(2,4), c = rand(2,4), d = rand(1,4);
+                qHTML = `${a}(${b}x) + ${c}(x - ${d})`;
+                ans = getTermPermutations([{c: a*b + c, v:'x'}, {c: -c*d, v:''}]);
+            }
+            else if(type === 4) { 
+                let a = rand(-5,5); while(a===0) a=1;
+                let b = rand(-5,5); while(b===0) b=1;
+                if (a === b) {
+                    qHTML = `(x ${a > 0 ? '+' : ''}${a})²`;
+                } else {
+                    qHTML = `(x ${a > 0 ? '+' : ''}${a})(x ${b > 0 ? '+' : ''}${b})`;
+                }
+                ans = getTermPermutations([{c: 1, v:'x²'}, {c: a+b, v:'x'}, {c: a*b, v:''}]);
+            }
+            else if(type === 5) { 
+                let f = rand(2,5), a = rand(2,4), b = rand(2,4);
+                while(gcd(a,b) > 1) b++;
+                qHTML = fracHtml(`${a*f}x²y`, `${b*f}xy²`);
+                let topStr = a===1 ? 'x' : `${a}x`; let botStr = b===1 ? 'y' : `${b}y`;
+                ans = botStr === '1' ? [topStr] : [`${topStr}/${botStr}`];
+            }
+            else if(type === 6 || type === 7) { 
+                let isDiv = (type === 7);
+                let numCoef, denCoef, numXP, numYP, denXP, denYP, resXP, resYP;
+                let a, b, c, d, n, m, p, q, r, s, i, j;
+
+                do {
+                    a = rand(-9, 9); while(a===0) a=1; b = rand(-9, 9); while(b===0) b=1;
+                    c = rand(-9, 9); while(c===0) c=1; d = rand(-9, 9); while(d===0) d=1;
+                    n = rand(0,2); m = rand(0,2); p = rand(0,2); q = rand(0,2);
+                    r = rand(0,2); s = rand(0,2); i = rand(0,2); j = rand(0,2);
+                    
+                    numCoef = isDiv ? a * d : a * c;
+                    denCoef = isDiv ? b * c : b * d;
+                    numXP = isDiv ? n + i : n + r;
+                    numYP = isDiv ? m + j : m + s;
+                    denXP = isDiv ? p + r : p + i;
+                    denYP = isDiv ? q + s : q + j;
+                    
+                    resXP = numXP - denXP;
+                    resYP = numYP - denYP;
+                } while (Math.abs(resXP) > 2 || Math.abs(resYP) > 2);
+
+                let topTerm1 = makeMonomial(a, n, m); let botTerm1 = makeMonomial(b, p, q);
+                let topTerm2 = makeMonomial(c, r, s); let botTerm2 = makeMonomial(d, i, j);
+                
+                qHTML = `${fracHtml(topTerm1, botTerm1)} ${isDiv ? '&divide;' : '&times;'} ${fracHtml(topTerm2, botTerm2)}`;
+                
+                let g = gcd(numCoef, denCoef);
+                numCoef /= g; denCoef /= g;
+                if (denCoef < 0) { numCoef = -numCoef; denCoef = -denCoef; }
+                
+                let finalTopX = resXP > 0 ? resXP : 0; let finalTopY = resYP > 0 ? resYP : 0;
+                let finalBotX = resXP < 0 ? -resXP : 0; let finalBotY = resYP < 0 ? -resYP : 0;
+                
+                let ansTop = makeMonomial(numCoef, finalTopX, finalTopY);
+                let ansBot = makeMonomial(denCoef, finalBotX, finalBotY);
+                
+                if (ansBot === '1') ans = [ansTop];
+                else ans = [`${ansTop}/${ansBot}`, `(${ansTop})/${ansBot}`, `${ansTop}/(${ansBot})`, `(${ansTop})/(${ansBot})`];
+            }
+            else if(type === 8) { 
+                let d = rand(3,7), n1 = rand(1,5), n2x = rand(2,5), n2c = rand(1,5);
+                qHTML = `${fracHtml(n1, d)} + ${fracHtml(n2x+'x - '+n2c, d)}`;
+                let finalC = n1 - n2c; 
+                ans = getFractionVariations([{c: n2x, v:'x'}, {c: finalC, v:''}], d);
+            }
+            else if(type === 9) { 
+                let d1 = rand(2,4), d2 = rand(3,5); while(gcd(d1,d2) > 1) d2++; let c1 = rand(1,4);
+                qHTML = `${fracHtml('x + '+c1, d1)} + ${fracHtml('x', d2)}`;
+                let nX = d2 + d1, nC = d2 * c1; 
+                ans = getFractionVariations([{c: nX, v:'x'}, {c: nC, v:''}], d1*d2);
+            }
+
+        } else if (actualMode === 2) {
+            instStr = "Factorise the expression";
+            let type = rand(1, 6);
+
+            if (type === 1) { 
+                let k = rand(2, 5), a = rand(1, 3);
+                let possibleB = [1, 2, 3, 4, 5].filter(num => gcd(a, num) === 1);
+                let b = possibleB[rand(0, possibleB.length - 1)] * (rand(0,1)?1:-1);
+                qHTML = formatTermsDisplay([{c: k*a, v:'x'}, {c: k*b, v:''}]);
+                let perms = getTermPermutations([{c: a, v:'x'}, {c: b, v:''}]);
+                ans = perms.map(p => `${k}(${p})`);
+            }
+            else if (type === 2) { 
+                let k = rand(2, 5), a = rand(1, 3);
+                let possibleB = [1, 2, 3, 4, 5].filter(num => gcd(a, num) === 1);
+                let b = possibleB[rand(0, possibleB.length - 1)] * (rand(0,1)?1:-1);
+                qHTML = formatTermsDisplay([{c: k*a, v:'x'}, {c: k*b, v:'y'}]);
+                let perms = getTermPermutations([{c: a, v:'x'}, {c: b, v:'y'}]);
+                ans = perms.map(p => `${k}(${p})`);
+            }
+            else if (type === 3) { 
+                let a = rand(1, 4), b = rand(1, 5) * (rand(0,1)?1:-1);
+                qHTML = formatTermsDisplay([{c: a, v:'x²'}, {c: b, v:'x'}]);
+                let g = gcd(a, Math.abs(b));
+                let innerA = a / g;
+                let innerB = b / g;
+                let outsideTerm = g === 1 ? 'x' : `${g}x`;
+                let perms = getTermPermutations([{c: innerA, v:'x'}, {c: innerB, v:''}]);
+                ans = perms.map(p => `${outsideTerm}(${p})`);
+            }
+            else { 
+                let p, q;
+                if (type === 4) { p = rand(1, 6); q = rand(1, 6); } 
+                else if (type === 5) { p = rand(1, 6) * (rand(0,1)?1:-1); q = rand(-6, -1); if (p === -q) p++; if (p === 0) p = 1; } 
+                else if (type === 6) { p = rand(1, 6); q = -p; }
+
+                let B = p + q, C = p * q;
+                qHTML = formatTermsDisplay([{c: 1, v:'x²'}, {c: B, v:'x'}, {c: C, v:''}]);
+                
+                let b1Perms = getTermPermutations([{c: 1, v:'x'}, {c: p, v:''}]);
+                let b2Perms = getTermPermutations([{c: 1, v:'x'}, {c: q, v:''}]);
+
+                if (p === q) { 
+                    b1Perms.forEach(b1 => { ans.push(`(${b1})²`); ans.push(`(${b1})(${b1})`); });
+                } else { 
+                    b1Perms.forEach(b1 => { b2Perms.forEach(b2 => { ans.push(`(${b1})(${b2})`); ans.push(`(${b2})(${b1})`); }); });
+                }
+            }
+        } else if (actualMode === 3) {
+            let type = rand(1, 5);
+            
+            if (type === 1) { 
+                let x = rand(-3, 3), y = rand(-4, 4), z = rand(-3, 3);
+                instStr = `Evaluate the expression<br><span style="text-transform:none;">(Given x = ${x}, y = ${y}, z = ${z})</span>`;
+                qHTML = `y² - 4xz`;
+                ans = [`${y*y - 4*x*z}`];
+            }
+            else if (type === 2) { 
+                let x = rand(1, 6)*2, y = rand(-5, 5);
+                instStr = `Evaluate the expression<br><span style="text-transform:none;">(Given x = ${x}, y = ${y})</span>`;
+                qHTML = fracHtml(`xy²`, `2`);
+                ans = [`${x*y*y / 2}`];
+            }
+            else if (type === 3) { 
+                let a = rand(2, 4) * (rand(0,1)?1:-1); let b = rand(2, 5) * (rand(0,1)?1:-1); let c = rand(1, 10) * (rand(0,1)?1:-1); let x = rand(-4, 4);
+                instStr = `Evaluate the expression<br><span style="text-transform:none;">(Given x = ${x})</span>`;
+                qHTML = formatTermsDisplay([{c:a, v:'x²'}, {c:b, v:'x'}, {c:c, v:''}]);
+                ans = [`${a*x*x + b*x + c}`];
+            }
+            else if (type === 4) { 
+                let triples = [[3,4], [5,12], [6,8], [8,15]]; let pair = triples[rand(0, triples.length-1)];
+                let x = pair[0] * (rand(0,1)?1:-1); let y = pair[1] * (rand(0,1)?1:-1); if(rand(0,1)) { let temp = x; x = y; y = temp; }
+                instStr = `Evaluate the expression<br><span style="text-transform:none;">(Given x = ${x}, y = ${y})</span>`;
+                qHTML = `&radic;<span style="border-top:2px solid #fff; padding-top:2px; display:inline-block; margin-top:5px;">x² + y²</span>`;
+                ans = [`${Math.sqrt(x*x + y*y)}`];
+            }
+            else if (type === 5) { 
+                let x = rand(-4, 4), y = rand(-10, 10), z = rand(-5, 5); while (z === 0) z = rand(-5, 5);
+                instStr = `Evaluate the expression<br><span style="text-transform:none;">(Given x = ${x}, y = ${y}, z = ${z})</span>`;
+                qHTML = fracHtml(`x² - y`, `z`);
+                let num = x*x - y; let den = z; let g = gcd(num, den); num /= g; den /= g;
+                if (den < 0) { num = -num; den = -den; }
+                if (den === 1) ans = [`${num}`]; else ans = [`${num}/${den}`];
+            }
+        } else if (actualMode === 4) {
+            instStr = "Solve the equation";
+            let type = rand(1, 5); let vVar = rand(0, 1) ? 'x' : 'y'; 
+            let num = 0, den = 1;
+
+            if (type === 1) { 
+                let a = rand(2, 6) * (rand(0,1)?1:-1); let b = rand(-10, 10); let c = rand(-10, 10);
+                qHTML = formatTermsDisplay([{c: a, v: vVar}, {c: b, v: ''}]) + ' = ' + c;
+                num = c - b; den = a;
+            }
+            else if (type === 2) { 
+                let a = rand(2, 6) * (rand(0,1)?1:-1); let c = rand(2, 6) * (rand(0,1)?1:-1); while (a === c) c = rand(2, 6) * (rand(0,1)?1:-1);
+                let b = rand(-10, 10); let d = rand(-10, 10);
+                qHTML = formatTermsDisplay([{c: a, v: vVar}, {c: b, v: ''}]) + ' = ' + formatTermsDisplay([{c: c, v: vVar}, {c: d, v: ''}]); 
+                num = d - b; den = a - c;
+            }
+            else if (type === 3) { 
+                let a = rand(2,5); let c = rand(-5,5); if(c===0) c=1; let d = rand(2,6) * (rand(0,1)?1:-1); while(a===d) d = rand(2,6); let e = rand(-5,5);
+                qHTML = a + '(' + formatTermsDisplay([{c: 1, v: vVar}, {c: c, v: ''}]) + ') = ' + formatTermsDisplay([{c: d, v: vVar}, {c: e, v: ''}]);
+                num = e - a*c; den = a - d;
+            }
+            else if (type === 4) { 
+                let a = rand(2,5); let b = rand(-5,5); if(b===0) b=1; let c = rand(2,5); let d = rand(-5,5); if(d===0) d=1; while(a===c) c = rand(2,5);
+                qHTML = a + '(' + formatTermsDisplay([{c: 1, v: vVar}, {c: b, v: ''}]) + ') = ' + c + '(' + formatTermsDisplay([{c: 1, v: vVar}, {c: d, v: ''}]) + ')'; 
+                num = c*d - a*b; den = a - c;
+            }
+            else if (type === 5) { 
+                let a = rand(2,5); let sign = rand(0,1)?1:-1; let b = rand(-5,5); if(b===0) b=1; let c = rand(2,5); let d = rand(-10,10); 
+                while (1 + sign*a - c === 0) c = rand(2,5);
+                let signStr = sign > 0 ? '+' : '-';
+                qHTML = vVar + ' ' + signStr + ' ' + a + '(' + formatTermsDisplay([{c: 1, v: vVar}, {c: b, v: ''}]) + ') = ' + formatTermsDisplay([{c: c, v: vVar}, {c: d, v: ''}]); 
+                num = d - sign*a*b; den = 1 + sign*a - c;
+            }
+            
+            let g = gcd(num, den); num = num/g; den = den/g;
+            if (den < 0) { num = -num; den = -den; }
+            if (den === 1) {
+                ans = [`${num}`];
+            } else {
+                ans = [`${num}/${den}`, `${num/den}`];
+            }
+
+        } else if (actualMode === 5) {
+            let type = rand(1, 2); let a = rand(2, 6) * (rand(0,1)?1:-1); let b = rand(-10, 10);
+            if (type === 1) { 
+                let n_opts = [5, 10, 15, 20, 30, 50, 100]; let n_val = n_opts[rand(0, n_opts.length - 1)];
+                instStr = `Find the ${n_val}th term of the sequence with formula`;
+                qHTML = `${formatTermsDisplay([{c: a, v: 'n'}, {c: b, v: ''}])}`;
+                ans = [`${a * n_val + b}`];
+            } else if (type === 2) { 
+                instStr = `Find the nth term of the sequence`;
+                qHTML = `${a*1+b}, ${a*2+b}, ${a*3+b}, ${a*4+b}, ...`;
+                ans = getTermPermutations([{c: a, v: 'n'}, {c: b, v: ''}]);
+            }
+        } else if (actualMode === 6) {
+            let type = rand(1, 6);
+            let v = ['x', 'y', 'z', 'n'].sort(() => 0.5 - Math.random());
+            let sub = v[0]; 
+            
+            if (type === 1) { 
+                instStr = `Make ${sub} the subject of the formula`;
+                let a = rand(2, 6); let b = rand(1, 10); let sign = rand(0, 1) ? '+' : '-';
+                qHTML = `${v[1]} = ${a}${sub} ${sign} ${b}`;
+                let c2 = sign === '+' ? -b : b;
+                ans = getFractionVariations([{c: 1, v: v[1]}, {c: c2, v: ''}], a);
+            } 
+            else if (type === 2) { 
+                instStr = `Make ${sub} the subject of the formula`;
+                let a = rand(2, 6); let b = rand(1, 10); let sign = rand(0, 1) ? '+' : '-';
+                qHTML = `${v[1]} = ${fracHtml(sub, a)} ${sign} ${b}`;
+                let p1 = `${v[1]}${sign==='+'?'-':'+'}${b}`;
+                let p2 = `${sign==='+'?'-':''}${b}+${v[1]}`;
+                ans = [`${a}(${p1})`, `${a}(${p2})`];
+                let c2 = sign === '+' ? -a*b : a*b;
+                ans = ans.concat(getTermPermutations([{c: a, v: v[1]}, {c: c2, v: ''}]));
+            } 
+            else if (type === 3) { 
+                instStr = `Make ${sub} the subject of the formula`;
+                let a = rand(2, 5); let b = rand(1, 8); let c = rand(2, 5);
+                let sign1 = rand(0, 1) ? '+' : '-'; let sign2 = rand(0, 1) ? '+' : '-';
+                qHTML = `${a}${sub} ${sign1} ${b} = ${c}${v[1]} ${sign2} ${sub}`;
+                let denom = sign2 === '+' ? (a - 1) : (a + 1);
+                let c2 = sign1 === '+' ? -b : b;
+                ans = getFractionVariations([{c: c, v: v[1]}, {c: c2, v: ''}], denom);
+            } 
+            else if (type === 4) { 
+                instStr = `Make ${sub} the subject of the formula`;
+                let a = rand(2, 5); let c = rand(2, 5); while (c === a) c = rand(2, 5);
+                qHTML = `${v[1]} = ${fracHtml(`${a}${sub}${v[2]}`, c)}`;
+                ans = [`${c}${v[1]}/${a}${v[2]}`, `(${c}${v[1]})/(${a}${v[2]})`];
+            } 
+            else if (type === 5) { 
+                instStr = `Make ${sub} the subject of the formula`;
+                let a = rand(1, 5);
+                if (a === 1) {
+                    qHTML = `${v[1]} = ${sub}²`;
+                    ans = [`√${v[1]}`, `√(${v[1]})`];
+                } else {
+                    qHTML = `${v[1]} = ${a}${sub}²`;
+                    ans = [`√(${v[1]})/${a}`, `√${v[1]}/${a}`];
+                }
+            }
+            else if (type === 6) {
+                instStr = `Make ${sub} the subject of the formula`;
+                let a = rand(2, 5) * (rand(0,1)?1:-1); let b = rand(1, 10) * (rand(0,1)?1:-1); let c = rand(2, 5);
+                qHTML = `${v[1]} = ${fracHtml(formatTermsDisplay([{c:a, v:sub}, {c:b, v:''}]), c)}`;
+                ans = getFractionVariations([{c: c, v: v[1]}, {c: -b, v: ''}], a);
+            }
+        }
+
+        gameState.expectedAnswer = ans; 
+        document.getElementById('instruction-display').innerHTML = instStr;
+        document.getElementById('question-display').innerHTML = qHTML;
+    }
+
+    // --- GAME FLOW & INPUT ---
+    function checkAnswer() {
+        let userRaw = gameState.currentInput.replace(/\s+/g, '');
+        let box = document.getElementById('answerBox');
+        let cursor = document.getElementById('input-cursor');
+        
+        if (userRaw === "3005") {
+            gameState.currentInput = gameState.expectedAnswer[0];
+            updateAnswerDisplay();
+            return;
+        }
+
+        let isCorrect = gameState.expectedAnswer.includes(userRaw);
+
+        if (isCorrect) {
+            gameState.score += 10; 
+            if (gameState.score > 100) gameState.score = 100;
+            gameState.failedAttempts = 0; 
+            updateStats();
+
+            box.style.borderColor = 'var(--accent-green)'; 
+            box.style.backgroundColor = 'rgba(63, 185, 80, 0.3)';
+            
+            if (gameState.score >= 100) {
+                completedMissions[gameState.currentMode] = true;
+                setTimeout(() => { 
+                    box.style.borderColor = 'var(--border-neon)'; 
+                    box.style.backgroundColor = 'var(--bg-dark)';
+                    showModal('MISSION COMPLETE', 'You have successfully executed the protocols and secured the data.');
+                }, 600);
+            } else {
+                setTimeout(() => { 
+                    box.style.borderColor = 'var(--border-neon)'; 
+                    box.style.backgroundColor = 'var(--bg-dark)';
+                    generateQuestion(); 
+                }, 600);
+            }
+
+        } else {
+            gameState.failedAttempts += 1;
+            
+            if (gameState.failedAttempts === 1) {
+                box.style.borderColor = 'var(--accent-orange)'; 
+                box.style.backgroundColor = 'rgba(255, 165, 0, 0.3)';
+                cursor.style.display = 'none';
+                document.getElementById('answer-display').innerHTML = '<span style="color:var(--accent-orange); font-size: 1.2rem; font-weight: bold; letter-spacing: normal;">TRY AGAIN</span>';
+                
+                setTimeout(() => {
+                    box.style.borderColor = 'var(--border-neon)'; 
+                    box.style.backgroundColor = 'var(--bg-dark)';
+                    cursor.style.display = 'inline-block';
+                    gameState.currentInput = '';
+                    updateAnswerDisplay();
+                }, 1200);
+
+            } else {
+                gameState.lives -= 1; 
+                gameState.failedAttempts = 0; 
+                updateStats();
+
+                box.style.borderColor = 'var(--accent-red)'; 
+                box.style.backgroundColor = 'rgba(255, 0, 60, 0.3)';
+                
+                setTimeout(() => { 
+                    box.style.borderColor = 'var(--border-neon)'; 
+                    box.style.backgroundColor = 'var(--bg-dark)';
+                    gameState.currentInput = '';
+                    updateAnswerDisplay();
+                    if (gameState.lives <= 0) { 
+                        showModal('SYSTEM CRASH', `Integrity compromised. Final score: ${gameState.score}%`, true);
+                    }
+                }, 800);
+            }
+        }
+    }
+
+    function updateStats() {
+        document.getElementById('ui-score').innerText = `Integrity: ${gameState.score}%`;
+        document.getElementById('ui-lives').innerText = `Firewalls: ${'🛡️'.repeat(Math.max(0, gameState.lives))}`;
+    }
+
+    document.querySelectorAll('.key:not(.key-submit):not(.key-del)').forEach(btn => {
+        const addChar = (e) => { 
+            e.preventDefault(); 
+            gameState.currentInput += btn.innerText;
+            updateAnswerDisplay();
+        };
+        btn.addEventListener('touchstart', addChar, { passive: false });
+        btn.addEventListener('click', addChar);
+    });
+
+    function keyPress(action) {
+        if (action === 'DEL') gameState.currentInput = gameState.currentInput.slice(0, -1);
+        if (action === 'ENTER') { checkAnswer(); return; }
+        updateAnswerDisplay();
+    }
+
+    function updateAnswerDisplay() { 
+        let str = gameState.currentInput;
+        let hasRoot = str.includes('√');
+        let contentStr = str;
+        
+        if (hasRoot) {
+            contentStr = str.replace('√', ''); 
+        }
+
+        let formattedContent = "";
+        if (contentStr.includes('/')) {
+            let p = contentStr.split('/');
+            formattedContent = fracHtml(p[0] || '&nbsp;', p[1] || '&nbsp;');
+        } else {
+            formattedContent = contentStr || '&nbsp;';
+        }
+
+        let finalHtml = "";
+        if (hasRoot) {
+            finalHtml = `<span style="display:inline-flex; align-items:center; vertical-align:middle;"><span style="font-size:1.2em;">&radic;</span><span style="border-top:2px solid #fff; padding-top:2px; margin-top:2px;">${formattedContent}</span></span>`;
+        } else {
+            finalHtml = formattedContent;
+        }
+
+        document.getElementById('answer-display').innerHTML = finalHtml;
+    }
+
+    // --- CANVAS SCRATCHPAD ---
+    const canvas = document.getElementById('drawingCanvas'), ctx = canvas.getContext('2d'), colCanvas = document.getElementById('col-canvas');
+    let drawing = false, currentTool = 'pen';
+
+    function resizeCanvas() { canvas.width = colCanvas.clientWidth; canvas.height = colCanvas.clientHeight; }
+    window.addEventListener('resize', resizeCanvas);
+    canvas.addEventListener('touchstart', (e) => e.preventDefault(), { passive: false });
+    canvas.addEventListener('touchmove', (e) => e.preventDefault(), { passive: false });
+
+    canvas.addEventListener('pointerdown', (e) => {
+        drawing = true; let rect = canvas.getBoundingClientRect();
+        ctx.beginPath(); ctx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
+        let pressure = e.pressure !== 0 ? e.pressure : 0.5;
+        ctx.lineWidth = currentTool === 'erase' ? 40 : 2 + (pressure * 4);
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        if (currentTool === 'erase') ctx.globalCompositeOperation = 'destination-out';
+        else { ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = '#00ffcc'; }
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+        if (!drawing) return;
+        let rect = canvas.getBoundingClientRect(); let pressure = e.pressure !== 0 ? e.pressure : 0.5;
+        if (currentTool === 'pen') ctx.lineWidth = 2 + (pressure * 4);
+        ctx.lineTo(e.clientX - rect.left, e.clientY - rect.top); ctx.stroke();
+    });
+
+    canvas.addEventListener('pointerup', () => drawing = false);
+    canvas.addEventListener('pointercancel', () => drawing = false);
+
+    document.getElementById('btn-draw').addEventListener('click', (e) => {
+        currentTool = 'pen'; e.target.classList.add('active-tool'); document.getElementById('btn-erase').classList.remove('active-tool');
+    });
+    document.getElementById('btn-erase').addEventListener('click', (e) => {
+        currentTool = 'erase'; e.target.classList.add('active-tool'); document.getElementById('btn-draw').classList.remove('active-tool');
+    });
+    document.getElementById('btn-clear').addEventListener('click', () => ctx.clearRect(0, 0, canvas.width, canvas.height));
+</script>
+</body>
+</html>
